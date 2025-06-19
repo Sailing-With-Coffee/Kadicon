@@ -3,6 +3,7 @@ import io
 import compress.gzip
 import networking
 import player
+import core
 import utils
 
 
@@ -20,14 +21,16 @@ fn main() {
     logger.log(utils.LogLevel.info, 'Listening on $bind_addr')
 
     mut player_list := player.PlayerList.new()
+    mut world := core.World.new(256, 64, 256)
+    world.generate_world()
 
     for {
 		mut socket := server.accept()!
-        spawn handle_client(mut socket, mut &player_list)
+        spawn handle_client(mut socket, mut &player_list, mut &world)
 	}
 }
 
-fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
+fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut world &core.World) {
 	defer {
 		socket.close() or { panic(err) }
 	}
@@ -91,7 +94,7 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
                 logger.log(utils.LogLevel.error, 'Failed to parse packet: $err')
                 return
             }
-            
+
 
             
             match packet_type {
@@ -137,30 +140,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
                     }
 
 
-                    mut dummy_world := []u8{len: 4 + 256*64*256}
-                    // add big endian int length of the world data at the start
-
-                    dummy_world[0] = 0x00
-                    dummy_world[1] = 0x40
-                    dummy_world[2] = 0x00
-                    dummy_world[3] = 0x00
-
-                    for x in 0 .. 256 {
-                        for z in 0 .. 256 {
-                            for y in 0 .. 64 {
-                                if y < 10 {
-                                    dummy_world[4 + x + z * 256 + y * 256 * 256] = 0x03 // Dirt
-                                } else if y == 10 {
-                                    dummy_world[4 + x + z * 256 + y * 256 * 256] = 0x02 // Grass
-                                } else {
-                                    dummy_world[4 + x + z * 256 + y * 256 * 256] = 0x00 // Air
-                                }
-                            }
-                        }
-                    }
-
                     // Compress the world data using pure gzip no headers or anything
-                    mut compressed_world := gzip.compress(dummy_world) or {
+                    mut compressed_world := gzip.compress(world.get_data()) or {
                         logger.log(utils.LogLevel.error, 'Failed to compress world data: $err')
                         return
                     }
@@ -288,7 +269,43 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
                 }
 
                 .set_block {
-                    logger.log(utils.LogLevel.info, 'Set block packet received')
+                    block_x := packet.read_short() or { logger.log(utils.LogLevel.error, 'Failed to read block X: $err') return }
+                    block_y := packet.read_short() or { logger.log(utils.LogLevel.error, 'Failed to read block Y: $err') return }
+                    block_z := packet.read_short() or { logger.log(utils.LogLevel.error, 'Failed to read block Z: $err') return }
+                    action := packet.read_byte() or { logger.log(utils.LogLevel.error, 'Failed to read action: $err') return }
+                    mut block_type := packet.read_byte() or { logger.log(utils.LogLevel.error, 'Failed to read block type: $err') return }
+
+                    if action == 0x01 {
+                        world.set_block(block_x, block_y, block_z, block_type) or {
+                            logger.log(utils.LogLevel.error, 'Failed to set block at ($block_x, $block_y, $block_z): $err')
+                            return
+                        }
+                    } else {
+                        world.set_block(block_x, block_y, block_z, 0x00) or {
+                            logger.log(utils.LogLevel.error, 'Failed to remove block at ($block_x, $block_y, $block_z): $err')
+                            return
+                        }
+
+                        block_type = 0x00
+                    }
+
+
+                    mut block_update_packet := networking.Packet{
+                        packet_type: u8(networking.S2C_PacketType.set_block)
+                    }
+
+                    block_update_packet = block_update_packet.append_short(block_x)
+                    block_update_packet = block_update_packet.append_short(block_y)
+                    block_update_packet = block_update_packet.append_short(block_z)
+                    block_update_packet = block_update_packet.append_byte(block_type)
+
+                    mut all_players := player_list.get_all_players()
+                    for mut player in all_players {
+                        player.socket.write(block_update_packet.to_bytes()) or {
+                            logger.log(utils.LogLevel.error, 'Failed to send block update packet to player ${player.username}: $err')
+                            return
+                        }
+                    }
                 }
 
                 .player_position_and_orientation {
