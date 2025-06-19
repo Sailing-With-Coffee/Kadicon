@@ -1,4 +1,4 @@
-# Kadicon <img align="right" width="128" height="128" src="https://www.github.com/Sailing-With-Coffee/Kadicon/blob/main/icon.png?raw=true" alt="Kadicon icon" />
+# Kadicon <img align="right" width="128" height="128" src="/icon.png" alt="Kadicon icon" />
 
 Kadicon is a Minecraft Classic 0.30 server written in V.
 > [!CAUTION]
