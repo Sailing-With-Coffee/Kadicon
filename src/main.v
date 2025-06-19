@@ -91,8 +91,7 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
                 logger.log(utils.LogLevel.error, 'Failed to parse packet: $err')
                 return
             }
-
-            logger.log(utils.LogLevel.info, 'Received packet of type: $packet_type')
+            
 
             
             match packet_type {
