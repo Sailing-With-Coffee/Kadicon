@@ -1,18 +1,18 @@
 module networking
 
 
-fn get_protocol_version() u8 {
+pub fn get_protocol_version() u8 {
 	return 0x07
 }
 
-enum C2S_PacketType as u8{
+pub enum C2S_PacketType as u8{
 	player_identification = 0x00
 	set_block = 0x05
 	player_position_and_orientation = 0x08
 	message = 0x0D
 }
 
-enum S2C_PacketType as u8{
+pub enum S2C_PacketType as u8{
 	server_identification = 0x00
 	ping = 0x01
 	level_initialize = 0x02
