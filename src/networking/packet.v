@@ -1,4 +1,5 @@
 module networking
+import math
 
 
 struct Packet {
@@ -8,43 +9,74 @@ struct Packet {
 
 
 // Unsigned byte (0 to 255)
-fn (mut p Packet) append_byte(value u8) {
-	p.data = p.data.clone()
-	p.data << value
+fn (mut p Packet) append_byte(value u8) Packet {
+	mut new_data := p.data.clone()
+	new_data << value
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
 // Signed byte (-128 to 127)
-fn (mut p Packet) append_signed_byte(value i8) {
-	p.data << u8(value)
+fn (mut p Packet) append_signed_byte(value i8) Packet {
+	mut new_data := p.data.clone()
+	new_data << u8(value & 0xFF)
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
 // Signed fixed-point, 5 fractional bits (-4 to 3.96875)
-fn (mut p Packet) append_signed_fixed_byte(value f32) {
+fn (mut p Packet) append_signed_fixed_byte(value f32) Packet {
 	if value < -4.0 || value > 3.96875 {
 		panic('Value out of range for signed fixed-point: $value')
 	}
 
-	p.data << u8((value + 4.0) * 32.0)
+	mut new_data := p.data.clone()
+	mut fixed_value := i8(int(math.round(value * 32.0)))
+	new_data << u8(fixed_value & 0xFF)
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
 // Signed integer (-32768 to 32767)
-fn (mut p Packet) append_short(value i16) {
-	p.data << u8(value >> 8)
-	p.data << u8(value & 0xFF)
+fn (mut p Packet) append_short(value i16) Packet {
+	mut new_data := p.data.clone()
+	new_data << u8(value >> 8)
+	new_data << u8(value & 0xFF)
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
 // Signed fixed-point, 5 fractional bits (-1024 to 1023.96875)
-fn (mut p Packet) append_signed_fixed_short(value f32) {
+fn (mut p Packet) append_signed_fixed_short(value f32) Packet {
 	if value < -1024.0 || value > 1023.96875 {
 		panic('Value out of range for signed fixed-point: $value')
 	}
 
-	p.data << u8((value + 1024.0) * 32.0 >> 8)
-	p.data << u8((value + 1024.0) * 32.0 & 0xFF)
+	mut new_data := p.data.clone()
+	mut fixed_value := i16(int(math.round(value * 32.0)))
+	new_data << u8(fixed_value >> 8)
+	new_data << u8(fixed_value & 0xFF)
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
 // UTF-8 encoded string padded with spaces (0x20), length is always 64
-fn (mut p Packet) append_string(value string) {
+fn (mut p Packet) append_string(value string) Packet {
 	if value.len > 64 {
 		panic('String too long for packet: $value')
 	}
@@ -56,13 +88,19 @@ fn (mut p Packet) append_string(value string) {
 		padded << u8(0x20)
 	}
 
-	p.data << padded
+	mut new_data := p.data.clone()
+	new_data << padded
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
-// Binary data padded with null bytes (0x00) only if length is less than 1024
-fn (mut p Packet) append_binary_data(value []u8) {
+// Level binary data padded with null bytes (0x00) only if length is less than 1024
+fn (mut p Packet) append_level_data(value []u8) Packet {
 	if value.len > 1024 {
-		panic('Binary data too long for packet: ${value.len} bytes')
+		panic('Level binary data too long for packet: ${value.len} bytes')
 	}
 
 	mut padded := value.clone()
@@ -70,16 +108,23 @@ fn (mut p Packet) append_binary_data(value []u8) {
 		padded << u8(0x00)
 	}
 
-	p.data << padded
+	mut new_data := p.data.clone()
+	new_data << padded
+
+	return Packet{
+		packet_type: p.packet_type,
+		data: new_data
+	}
 }
 
 
+// Convert the packet to a byte array for sending over the network
 fn (mut p Packet) to_bytes() []u8 {
 	mut bytes := []u8{len: 1 + p.data.len}
 	bytes[0] = p.packet_type
 
 	if p.data.len > 0 {
-		bytes[1..] = p.data
+		bytes << p.data
 	}
 
 	return bytes

@@ -1,4 +1,4 @@
 @echo off
 title Kadicon Testing Window
-v run .
+cmd /k "v run ."
 pause
