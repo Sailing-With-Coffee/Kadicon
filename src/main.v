@@ -1,6 +1,8 @@
 import networking
+import utils
 
 
 fn main() {
-    println('hello world')
+    logger := utils.Logger.new()
+    logger.log(utils.LogLevel.info, 'Welcome to Kadicon !')
 }
