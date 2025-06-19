@@ -58,11 +58,11 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
             return
         }
 
+        logger.log(utils.LogLevel.info, 'Received packet of type: $packet_type')
+
         
         match packet_type {
             .player_identification {
-                logger.log(utils.LogLevel.info, 'Player identification packet received')
-
                 protocol_version := packet.read_byte() or { logger.log(utils.LogLevel.error, 'Failed to read protocol version: $err'); return }
                 username := packet.read_string() or { logger.log(utils.LogLevel.error, 'Failed to read username: $err'); return }
                 verification_key := packet.read_string() or { logger.log(utils.LogLevel.error, 'Failed to read verification key: $err'); return }
@@ -200,11 +200,54 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
                 }
 
                 welcome_message_packet = welcome_message_packet.append_signed_byte(-1)
-                welcome_message_packet = welcome_message_packet.append_string('Welcome, $username!')
+                welcome_message_packet = welcome_message_packet.append_string('$username joined the game')
 
-                socket.write(welcome_message_packet.to_bytes()) or {
-                    logger.log(utils.LogLevel.error, 'Failed to send welcome message packet: $err')
-                    return
+                mut all_players := player_list.get_all_players()
+                for mut player in all_players {
+                    player.socket.write(welcome_message_packet.to_bytes()) or {
+                        logger.log(utils.LogLevel.error, 'Failed to send welcome message packet: $err')
+                        return
+                    }
+                }
+
+                logger.log(utils.LogLevel.info, '$username joined the game')
+
+
+                mut spawn_player_packet := networking.Packet{
+                    packet_type: u8(networking.S2C_PacketType.spawn_player)
+                }
+
+                spawn_player_packet = spawn_player_packet.append_signed_byte(new_player.id)
+                spawn_player_packet = spawn_player_packet.append_string(new_player.username)
+                spawn_player_packet = spawn_player_packet.append_signed_fixed_short(new_player.x)
+                spawn_player_packet = spawn_player_packet.append_signed_fixed_short(new_player.y)
+                spawn_player_packet = spawn_player_packet.append_signed_fixed_short(new_player.z)
+                spawn_player_packet = spawn_player_packet.append_byte(new_player.yaw)
+                spawn_player_packet = spawn_player_packet.append_byte(new_player.pitch)
+
+                mut other_players := player_list.get_all_players_except(new_player.id)
+                for mut other_player in other_players {
+                    other_player.socket.write(spawn_player_packet.to_bytes()) or {
+                        logger.log(utils.LogLevel.error, 'Failed to send spawn player packet to player ${other_player.username}: $err')
+                        return
+                    }
+
+                    mut spawn_other_player_packet := networking.Packet{
+                        packet_type: u8(networking.S2C_PacketType.spawn_player)
+                    }
+
+                    spawn_other_player_packet = spawn_other_player_packet.append_signed_byte(other_player.id)
+                    spawn_other_player_packet = spawn_other_player_packet.append_string(other_player.username)
+                    spawn_other_player_packet = spawn_other_player_packet.append_signed_fixed_short(other_player.x)
+                    spawn_other_player_packet = spawn_other_player_packet.append_signed_fixed_short(other_player.y)
+                    spawn_other_player_packet = spawn_other_player_packet.append_signed_fixed_short(other_player.z)
+                    spawn_other_player_packet = spawn_other_player_packet.append_byte(other_player.yaw)
+                    spawn_other_player_packet = spawn_other_player_packet.append_byte(other_player.pitch)
+
+                    socket.write(spawn_other_player_packet.to_bytes()) or {
+                        logger.log(utils.LogLevel.error, 'Failed to send spawn other player packet to new player: $err')
+                        return
+                    }
                 }
 
 
@@ -238,10 +281,54 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList) {
                     logger.log(utils.LogLevel.error, 'Failed to set player orientation: $err')
                     return
                 }
+
+
+                mut position_update_packet := networking.Packet{
+                    packet_type: u8(networking.S2C_PacketType.set_player_position_and_orientation)
+                }
+
+                position_update_packet = position_update_packet.append_signed_byte(affected_player_id)
+                position_update_packet = position_update_packet.append_signed_fixed_short(new_x)
+                position_update_packet = position_update_packet.append_signed_fixed_short(new_y)
+                position_update_packet = position_update_packet.append_signed_fixed_short(new_z)
+                position_update_packet = position_update_packet.append_byte(new_yaw)
+                position_update_packet = position_update_packet.append_byte(new_pitch)
+
+                mut other_players := player_list.get_all_players_except(real_affected_player.id)
+                for mut other_player in other_players {
+                    other_player.socket.write(position_update_packet.to_bytes()) or {
+                        logger.log(utils.LogLevel.error, 'Failed to send position update packet to player ${other_player.username}: $err')
+                        return
+                    }
+                }
             }
 
             .message {
-                logger.log(utils.LogLevel.info, 'Message packet received')
+                mut sender_id := packet.read_signed_byte() or { logger.log(utils.LogLevel.error, 'Failed to read sender ID: $err'); return }
+                mut message := packet.read_string() or { logger.log(utils.LogLevel.error, 'Failed to read message: $err'); return }
+                logger.log(utils.LogLevel.info, 'Message from player $sender_id: $message')
+
+                real_affected_player := player_list.get_player_by_socket(socket) or {
+                    logger.log(utils.LogLevel.error, 'Player not found for socket: $err')
+                    return
+                }
+                sender_id = player_list.get_player_id(real_affected_player)
+
+
+                mut message_packet := networking.Packet{
+                    packet_type: u8(networking.S2C_PacketType.message)
+                }
+
+                message_packet = message_packet.append_signed_byte(sender_id)
+                message_packet = message_packet.append_string(message)
+
+                mut all_players := player_list.get_all_players()
+                for mut player in all_players {
+                    player.socket.write(message_packet.to_bytes()) or {
+                        logger.log(utils.LogLevel.error, 'Failed to send welcome message packet: $err')
+                        return
+                    }
+                }
             }
         }
 

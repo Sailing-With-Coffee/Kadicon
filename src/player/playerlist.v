@@ -50,6 +50,16 @@ pub fn (pl PlayerList) get_all_players() []Player {
 	return pl.players.clone()
 }
 
+pub fn (pl PlayerList) get_all_players_except(player_id i8) []Player {
+	mut filtered_players := []Player{}
+	for plr in pl.players {
+		if plr.id != player_id {
+			filtered_players << plr
+		}
+	}
+	return filtered_players
+}
+
 pub fn (pl PlayerList) count() int {
 	return pl.players.len
 }

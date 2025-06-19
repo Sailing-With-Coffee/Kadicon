@@ -21,8 +21,10 @@ pub mut:
 }
 
 pub fn Player.new(name string, key string, sock &net.TcpConn) Player {
+	new_id := i8(rand.int_in_range(0, 127) or { panic('Failed to generate player ID') })
+
 	return Player{
-		id: i8(rand.int_in_range(-128, 127) or { panic('Failed to generate player ID') }),
+		id: new_id,
 		username: name,
 		verification_key: key,
 		op: 0x00, // Default operator level
