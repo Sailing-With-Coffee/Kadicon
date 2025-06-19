@@ -125,7 +125,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     response_packet = response_packet.append_byte(new_player.op)
 
                     socket.write(response_packet.to_bytes()) or {
-                        logger.log(utils.LogLevel.error, 'Failed to send server identification packet: $err')
+                        logger.log(utils.LogLevel.warning, 'Failed to send server identification packet: $err')
+                        disconnect_player(mut socket, mut player_list)
                         return
                     }
 
@@ -135,7 +136,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     }
 
                     socket.write(level_initialize_packet.to_bytes()) or {
-                        logger.log(utils.LogLevel.error, 'Failed to send level initialize packet: $err')
+                        logger.log(utils.LogLevel.warning, 'Failed to send level initialize packet: $err')
+                        disconnect_player(mut socket, mut player_list)
                         return
                     }
 
@@ -165,7 +167,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                         level_data_chunk_packet = level_data_chunk_packet.append_byte(u8((offset + chunk_length) * 100 / compressed_world.len))
 
                         socket.write(level_data_chunk_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send level data chunk packet: $err')
+                            logger.log(utils.LogLevel.warning, 'Failed to send level data chunk packet: $err')
+                            disconnect_player(mut socket, mut player_list)
                             return
                         }
 
@@ -182,13 +185,15 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     level_finalize_packet = level_finalize_packet.append_short(256)
 
                     socket.write(level_finalize_packet.to_bytes()) or {
-                        logger.log(utils.LogLevel.error, 'Failed to send level finalize packet: $err')
+                        logger.log(utils.LogLevel.warning, 'Failed to send level finalize packet: $err')
+                        disconnect_player(mut socket, mut player_list)
                         return
                     }
 
 
                     player_list.set_player_position(new_player.id, 128.0, 15.0, 128.0) or {
-                        logger.log(utils.LogLevel.error, 'Failed to set player position: $err')
+                        logger.log(utils.LogLevel.warning, 'Failed to set player position: $err')
+                        disconnect_player(mut socket, mut player_list)
                         return
                     }
 
@@ -204,7 +209,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     position_update_packet = position_update_packet.append_byte(0)
 
                     socket.write(position_update_packet.to_bytes()) or {
-                        logger.log(utils.LogLevel.error, 'Failed to send position update packet: $err')
+                        logger.log(utils.LogLevel.warning, 'Failed to send position update packet: $err')
+                        disconnect_player(mut socket, mut player_list)
                         return
                     }
 
@@ -219,8 +225,9 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     mut all_players := player_list.get_all_players()
                     for mut player in all_players {
                         player.socket.write(welcome_message_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send welcome message packet: $err')
-                            return
+                            logger.log(utils.LogLevel.warning, 'Failed to send welcome message packet: $err')
+                            disconnect_player(mut player.socket, mut player_list)
+                            continue
                         }
                     }
 
@@ -242,8 +249,9 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     mut other_players := player_list.get_all_players_except(new_player.id)
                     for mut other_player in other_players {
                         other_player.socket.write(spawn_player_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send spawn player packet to player ${other_player.username}: $err')
-                            return
+                            logger.log(utils.LogLevel.warning, 'Failed to send spawn player packet to player ${other_player.username}: $err')
+                            disconnect_player(mut other_player.socket, mut player_list)
+                            continue
                         }
 
                         mut spawn_other_player_packet := networking.Packet{
@@ -259,8 +267,9 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                         spawn_other_player_packet = spawn_other_player_packet.append_byte(other_player.pitch)
 
                         socket.write(spawn_other_player_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send spawn other player packet to new player: $err')
-                            return
+                            logger.log(utils.LogLevel.warning, 'Failed to send spawn other player packet to new player: $err')
+                            disconnect_player(mut socket, mut player_list)
+                            continue
                         }
                     }
 
@@ -302,8 +311,9 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     mut all_players := player_list.get_all_players()
                     for mut player in all_players {
                         player.socket.write(block_update_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send block update packet to player ${player.username}: $err')
-                            return
+                            logger.log(utils.LogLevel.warning, 'Failed to send block update packet to player ${player.username}: $err')
+                            disconnect_player(mut player.socket, mut player_list)
+                            continue
                         }
                     }
                 }
@@ -347,8 +357,9 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     mut other_players := player_list.get_all_players_except(real_affected_player.id)
                     for mut other_player in other_players {
                         other_player.socket.write(position_update_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send position update packet to player ${other_player.username}: $err')
-                            return
+                            logger.log(utils.LogLevel.warning, 'Failed to send position update packet to player ${other_player.username}: $err')
+                            disconnect_player(mut other_player.socket, mut player_list)
+                            continue
                         }
                     }
                 }
@@ -375,8 +386,9 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     mut all_players := player_list.get_all_players()
                     for mut player in all_players {
                         player.socket.write(message_packet.to_bytes()) or {
-                            logger.log(utils.LogLevel.error, 'Failed to send welcome message packet: $err')
-                            return
+                            logger.log(utils.LogLevel.warning, 'Failed to send welcome message packet: $err')
+                            disconnect_player(mut player.socket, mut player_list)
+                            continue
                         }
                     }
                 }
@@ -388,7 +400,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                 }
 
                 socket.write(ping_packet.to_bytes()) or {
-                    logger.log(utils.LogLevel.error, 'Failed to send ping packet: $err')
+                    logger.log(utils.LogLevel.warning, 'Failed to send ping packet: $err')
+                    disconnect_player(mut socket, mut player_list)
                     return
                 }
             }
@@ -396,4 +409,42 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
             break
         }
 	}
+}
+
+fn disconnect_player(mut socket net.TcpConn, mut player_list &player.PlayerList) {
+    if player := player_list.get_player_by_socket(socket) {
+        logger := utils.Logger.new()
+        logger.log(utils.LogLevel.info, '${player.username} left the game')
+        player_list.remove_player(player.id)
+
+        mut disconnect_packet := networking.Packet{
+            packet_type: u8(networking.S2C_PacketType.despawn_player)
+        }
+
+        disconnect_packet = disconnect_packet.append_signed_byte(player.id)
+
+
+        mut leave_chat_packet := networking.Packet{
+            packet_type: u8(networking.S2C_PacketType.message)
+        }
+
+        leave_chat_packet = leave_chat_packet.append_signed_byte(-1)
+        leave_chat_packet = leave_chat_packet.append_string('${player.username} left the game')
+
+
+        mut all_players := player_list.get_all_players()
+        for mut other_player in all_players {
+            other_player.socket.write(disconnect_packet.to_bytes()) or {
+                logger.log(utils.LogLevel.warning, 'Failed to send disconnect packet to player ${other_player.username}: $err')
+                continue
+            }
+
+            other_player.socket.write(leave_chat_packet.to_bytes()) or {
+                logger.log(utils.LogLevel.warning, 'Failed to send leave chat packet to player ${other_player.username}: $err')
+                continue
+            }
+        }
+    }
+
+    socket.close() or {}
 }
