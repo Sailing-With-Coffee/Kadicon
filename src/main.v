@@ -11,8 +11,12 @@ fn main() {
     logger := utils.Logger.new()
     logger.log(utils.LogLevel.info, 'Welcome to Kadicon !')
 
-    // Listen on TCP 25565
-    mut bind_addr := '0.0.0.0:25565'
+    config := utils.Config.load()
+    logger.log(utils.LogLevel.info, 'Server Name: ${config.server_name}')
+    logger.log(utils.LogLevel.info, 'MOTD: ${config.motd}')
+
+    // Listen on TCP
+    mut bind_addr := '0.0.0.0:${config.port}'
     mut server := net.listen_tcp(.ip, bind_addr) or {
         logger.log(utils.LogLevel.error, 'Failed to bind to $bind_addr !')
         return
@@ -26,11 +30,11 @@ fn main() {
 
     for {
 		mut socket := server.accept()!
-        spawn handle_client(mut socket, mut &player_list, mut &world)
+        spawn handle_client(mut socket, mut &player_list, mut &world, &config)
 	}
 }
 
-fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut world &core.World) {
+fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut world &core.World, config &utils.Config) {
 	defer {
 		socket.close() or { panic(err) }
 	}
@@ -120,8 +124,8 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     }
 
                     response_packet = response_packet.append_byte(networking.get_protocol_version())
-                    response_packet = response_packet.append_string('A Minecraft Server')
-                    response_packet = response_packet.append_string('Powered by Kadicon')
+                    response_packet = response_packet.append_string(config.server_name)
+                    response_packet = response_packet.append_string(config.motd)
                     response_packet = response_packet.append_byte(new_player.op)
 
                     socket.write(response_packet.to_bytes()) or {
