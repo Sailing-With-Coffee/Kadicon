@@ -53,10 +53,6 @@ pub fn (mut p Packet) read_signed_byte() !i8 {
 
 // Signed fixed-point, 5 fractional bits (-4 to 3.96875)
 pub fn (mut p Packet) append_signed_fixed_byte(value f32) Packet {
-	if value < -4.0 || value > 3.96875 {
-		panic('Value out of range for signed fixed-point: $value')
-	}
-
 	mut new_data := p.data.clone()
 	mut fixed_value := i8(int(math.round(value * 32.0)))
 	new_data << u8(fixed_value & 0xFF)
