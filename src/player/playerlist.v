@@ -64,6 +64,21 @@ pub fn (pl PlayerList) count() int {
 	return pl.players.len
 }
 
+pub fn (pl PlayerList) find_unused_id() ?i8 {
+	mut used_ids := map[i8]bool{}
+	for plr in pl.players {
+		used_ids[plr.id] = true
+	}
+
+	for id in 0 .. 127 {
+		if !used_ids[id] {
+			return id
+		}
+	}
+
+	return none 
+}
+
 pub fn (pl PlayerList) set_player_position(player_id i8, x f32, y f32, z f32) ! {
 	mut plr := pl.get_player(player_id) or {
 		return error('Player with ID $player_id not found')

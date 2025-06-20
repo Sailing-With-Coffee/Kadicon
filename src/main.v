@@ -26,7 +26,13 @@ fn main() {
 
     mut player_list := player.PlayerList.new()
     mut world := core.World.new(256, 64, 256)
-    world.generate_world()
+    
+    if config.flat_world {
+        world.generate_flat_world()
+    } else {
+        world.generate_world(config.seed)
+    }
+
 
     for {
 		mut socket := server.accept()!
@@ -195,7 +201,7 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
                     }
 
 
-                    player_list.set_player_position(new_player.id, 128.0, 15.0, 128.0) or {
+                    player_list.set_player_position(new_player.id, 128.0, 30.0, 128.0) or {
                         logger.log(utils.LogLevel.warning, 'Failed to set player position: $err')
                         disconnect_player(mut socket, mut player_list)
                         return
@@ -207,7 +213,7 @@ fn handle_client(mut socket net.TcpConn, mut player_list &player.PlayerList, mut
 
                     position_update_packet = position_update_packet.append_signed_byte(-1)
                     position_update_packet = position_update_packet.append_signed_fixed_short(128)
-                    position_update_packet = position_update_packet.append_signed_fixed_short(15)
+                    position_update_packet = position_update_packet.append_signed_fixed_short(30)
                     position_update_packet = position_update_packet.append_signed_fixed_short(128)
                     position_update_packet = position_update_packet.append_byte(0)
                     position_update_packet = position_update_packet.append_byte(0)

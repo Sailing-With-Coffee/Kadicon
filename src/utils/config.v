@@ -7,6 +7,8 @@ pub mut:
 	server_name string
 	motd string
 	port int
+	seed int
+	flat_world bool
 }
 
 pub fn Config.load() Config {
@@ -18,6 +20,8 @@ pub fn Config.load() Config {
 			server_name: 'A Minecraft Server',
 			motd: 'Powered by Kadicon',
 			port: 25565,
+			seed: 12345,
+			flat_world: false
 		}
 
 		/*
@@ -28,7 +32,9 @@ pub fn Config.load() Config {
 		os.write_file(config_path, '# Default Server Configuration\n' +
 			'server_name=${default_config.server_name}\n' +
 			'motd=${default_config.motd}\n' +
-			'port=${default_config.port}\n') or {
+			'port=${default_config.port}\n' +
+			'seed=${default_config.seed}\n' +
+			'flat_world=${default_config.flat_world}\n') or {
 			panic('Failed to create default config file: $err')
 		}
 	}
@@ -59,6 +65,12 @@ pub fn Config.load() Config {
 			}
 			'port' {
 				config.port = value.int()
+			}
+			'seed' {
+				config.seed = value.int()
+			}
+			'flat_world' {
+				config.flat_world = value == 'true'
 			}
 			else {}
 		}
