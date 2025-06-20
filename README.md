@@ -16,7 +16,7 @@ Simply launch the binary. It will create a server.properties file which you can 
 ## How To Compile
 Simply run this command:
 ```
-v .
+v -prod .
 ```
 And it should compile Kadicon into a binary ready to be executed.
 
