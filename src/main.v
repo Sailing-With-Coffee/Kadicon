@@ -1,3 +1,4 @@
+module main
 import net
 import io
 import compress.gzip
